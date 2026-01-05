@@ -3,9 +3,11 @@ import axios from 'axios'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Cell } from 'recharts';
 import { Activity, Utensils, Zap, FileUp, HeartPulse, Droplet, User, Calendar } from 'lucide-react'; // אייקונים חדשים
 import './App.css'
+import MealHistory from './components/MealHistory'; // <--- ייבוא
 
 // const API_URL = "http://127.0.0.1:8000"; 
-const API_URL = "https://ldclmiawsh.execute-api.us-east-1.amazonaws.com/default/Nutrition-Backend"; 
+
+const API_URL = "https://ldclmiawsh.execute-api.us-east-1.amazonaws.com/default";
 
 function App() {
   const [users, setUsers] = useState([]);
@@ -83,9 +85,9 @@ function App() {
           <HeartPulse color="#2563eb" size={28} />
           <h2>Clinical AI</h2>
         </div>
-        
+
         <div className="control-group">
-          <label><User size={14} style={{display:'inline', marginRight:5}}/> Select Patient</label>
+          <label><User size={14} style={{ display: 'inline', marginRight: 5 }} /> Select Patient</label>
           <select onChange={(e) => setSelectedUserId(e.target.value)} value={selectedUserId || ""}>
             {users.map(u => (
               <option key={u.user_id} value={u.user_id}>
@@ -96,21 +98,21 @@ function App() {
         </div>
 
         <div className="control-group">
-          <label><FileUp size={14} style={{display:'inline', marginRight:5}}/> Upload Meal Image</label>
-          
+          <label><FileUp size={14} style={{ display: 'inline', marginRight: 5 }} /> Upload Meal Image</label>
+
           {/* עיצוב כפתור העלאה מותאם אישית */}
           <div className="file-upload-box">
-             <input type="file" onChange={(e) => setFile(e.target.files[0])} />
-             <div className="upload-placeholder">
-                {file ? file.name : "Click or Drag image here"}
-             </div>
+            <input type="file" onChange={(e) => setFile(e.target.files[0])} />
+            <div className="upload-placeholder">
+              {file ? file.name : "Click or Drag image here"}
+            </div>
           </div>
-
+          {selectedUserId && <MealHistory userId={selectedUserId} />}
           <button onClick={handleAnalyze} disabled={loading || !file} className="analyze-btn">
             {loading ? (
-                <>Processing...</> 
+              <>Processing...</>
             ) : (
-                <><Zap size={18} /> Analyze Meal</>
+              <><Zap size={18} /> Analyze Meal</>
             )}
           </button>
         </div>
@@ -118,97 +120,97 @@ function App() {
 
       <main className="content">
         <header>
-            <h1>Nutritional Analysis Report</h1>
-            <p>Real-time clinical assessment powered by GenAI</p>
+          <h1>Nutritional Analysis Report</h1>
+          <p>Real-time clinical assessment powered by GenAI</p>
         </header>
 
         {reportData && (
           <>
             <div className="dashboard-grid">
-                {/* צד שמאל: סיכום טקסטואלי + מדדים */}
-                <section className="card">
-                    <h3><Activity size={20} color="#2563eb"/> AI Assessment</h3>
-                    <div className="summary-content">
-                        {reportData.summary}
-                    </div>
+              {/* צד שמאל: סיכום טקסטואלי + מדדים */}
+              <section className="card">
+                <h3><Activity size={20} color="#2563eb" /> AI Assessment</h3>
+                <div className="summary-content">
+                  {reportData.summary}
+                </div>
 
-                    <div className="metrics-container">
-                        <div className="metric-item">
-                            <span className="metric-label">Iron</span>
-                            <span className="metric-val" style={{color: getBarColor(getMetricValue('iron'))}}>
-                                {getMetricValue('iron')}%
-                            </span>
-                        </div>
-                        <div className="metric-item">
-                            <span className="metric-label">Calcium</span>
-                            <span className="metric-val" style={{color: getBarColor(getMetricValue('calcium'))}}>
-                                {getMetricValue('calcium')}%
-                            </span>
-                        </div>
-                        <div className="metric-item">
-                            <span className="metric-label">B12</span>
-                            <span className="metric-val" style={{color: getBarColor(getMetricValue('vitamin_b12'))}}>
-                                {getMetricValue('vitamin_b12')}%
-                            </span>
-                        </div>
-                        <div className="metric-item">
-                            <span className="metric-label">Vit C</span>
-                            <span className="metric-val" style={{color: getBarColor(getMetricValue('vitamin_c'))}}>
-                                {getMetricValue('vitamin_c')}%
-                            </span>
-                        </div>
-                    </div>
-                </section>
+                <div className="metrics-container">
+                  <div className="metric-item">
+                    <span className="metric-label">Iron</span>
+                    <span className="metric-val" style={{ color: getBarColor(getMetricValue('iron')) }}>
+                      {getMetricValue('iron')}%
+                    </span>
+                  </div>
+                  <div className="metric-item">
+                    <span className="metric-label">Calcium</span>
+                    <span className="metric-val" style={{ color: getBarColor(getMetricValue('calcium')) }}>
+                      {getMetricValue('calcium')}%
+                    </span>
+                  </div>
+                  <div className="metric-item">
+                    <span className="metric-label">B12</span>
+                    <span className="metric-val" style={{ color: getBarColor(getMetricValue('vitamin_b12')) }}>
+                      {getMetricValue('vitamin_b12')}%
+                    </span>
+                  </div>
+                  <div className="metric-item">
+                    <span className="metric-label">Vit C</span>
+                    <span className="metric-val" style={{ color: getBarColor(getMetricValue('vitamin_c')) }}>
+                      {getMetricValue('vitamin_c')}%
+                    </span>
+                  </div>
+                </div>
+              </section>
 
-                {/* צד ימין: גרף */}
-                <section className="card">
-                    <h3><Droplet size={20} color="#2563eb"/> Micronutrient Status</h3>
-                    <div style={{ height: 350, width: '100%' }}>
-                        <ResponsiveContainer>
-                        <BarChart data={reportData.report} margin={{top: 20, right: 30, left: 20, bottom: 60}}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                            <XAxis dataKey="nutrient_name" angle={-45} textAnchor="end" height={80} interval={0} tick={{fill: '#6b7280', fontSize: 12}} />
-                            <YAxis tick={{fill: '#6b7280', fontSize: 12}} />
-                            <Tooltip 
-                                cursor={{fill: '#f3f4f6'}}
-                                contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}
-                            />
-                            <ReferenceLine y={100} stroke="#9ca3af" strokeDasharray="3 3" />
-                            <Bar dataKey="percentage" radius={[4, 4, 0, 0]}>
-                            {reportData.report.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={getBarColor(entry.percentage)} />
-                            ))}
-                            </Bar>
-                        </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </section>
+              {/* צד ימין: גרף */}
+              <section className="card">
+                <h3><Droplet size={20} color="#2563eb" /> Micronutrient Status</h3>
+                <div style={{ height: 350, width: '100%' }}>
+                  <ResponsiveContainer>
+                    <BarChart data={reportData.report} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                      <XAxis dataKey="nutrient_name" angle={-45} textAnchor="end" height={80} interval={0} tick={{ fill: '#6b7280', fontSize: 12 }} />
+                      <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} />
+                      <Tooltip
+                        cursor={{ fill: '#f3f4f6' }}
+                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                      />
+                      <ReferenceLine y={100} stroke="#9ca3af" strokeDasharray="3 3" />
+                      <Bar dataKey="percentage" radius={[4, 4, 0, 0]}>
+                        {reportData.report.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={getBarColor(entry.percentage)} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </section>
             </div>
 
             {recommendations.length > 0 && (
-                <section>
-                    <h3 style={{fontSize: '1.25rem', marginBottom: '20px', color: '#111827', display:'flex', alignItems:'center', gap:10}}>
-                        <Utensils size={24} color="#2563eb"/> 
-                        Smart Optimization
-                    </h3>
-                    <div className="rec-grid">
-                    {recommendations.map((rec, idx) => (
-                        <div key={idx} className="rec-card">
-                        <h4>{rec.food_name}</h4>
-                        <div className="rec-meta">
-                            <span>📏 {rec.serving}</span>
-                            <span>🔥 {rec.calories} kcal</span>
-                        </div>
-                        <div className="rec-why">
-                            {rec.reason}
-                        </div>
-                        <div className="tags">
-                            {rec.tags.split(',').slice(0, 3).map(t => <span key={t}>{t}</span>)}
-                        </div>
-                        </div>
-                    ))}
+              <section>
+                <h3 style={{ fontSize: '1.25rem', marginBottom: '20px', color: '#111827', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Utensils size={24} color="#2563eb" />
+                  Smart Optimization
+                </h3>
+                <div className="rec-grid">
+                  {recommendations.map((rec, idx) => (
+                    <div key={idx} className="rec-card">
+                      <h4>{rec.food_name}</h4>
+                      <div className="rec-meta">
+                        <span>📏 {rec.serving}</span>
+                        <span>🔥 {rec.calories} kcal</span>
+                      </div>
+                      <div className="rec-why">
+                        {rec.reason}
+                      </div>
+                      <div className="tags">
+                        {rec.tags.split(',').slice(0, 3).map(t => <span key={t}>{t}</span>)}
+                      </div>
                     </div>
-                </section>
+                  ))}
+                </div>
+              </section>
             )}
           </>
         )}

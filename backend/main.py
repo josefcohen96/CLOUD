@@ -8,7 +8,7 @@ from db_handler import get_db_connection
 from nutrition_ai import analyze_food_image
 from recommender_engine import recommend_food
 
-app = FastAPI()
+app = FastAPI(root_path="/default")
 
 # אפשור גישה מה-Frontend
 app.add_middleware(
@@ -85,5 +85,28 @@ def get_report(user_id: int):
 @app.get("/recommendations/{user_id}")
 def get_recommendations_endpoint(user_id: int):
     return recommend_food(user_id)
+
+
+@app.get("/history/{user_id}")
+def get_meal_history(user_id: int):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="DB Connection Failed")
+    try:
+        # שליפת הארוחות לפי תאריך יורד (הכי חדש למעלה)
+        query = """
+            SELECT meal_id, created_at, ai_analysis_summary 
+            FROM meals 
+            WHERE user_id = %s 
+            ORDER BY created_at DESC
+        """
+        df = pd.read_sql(query, conn, params=(user_id,))
+        
+        # המרת תאריכים לסטרינג כדי שיהיה קל לקרוא ב-JSON
+        df['created_at'] = df['created_at'].astype(str)
+        
+        return df.to_dict(orient="records")
+    finally:
+        conn.close()
 
 handler = Mangum(app)

@@ -1,17 +1,14 @@
-FROM python:3.9-slim
+# משתמשים באימג' הרשמי של AWS Lambda (במקום slim)
+FROM public.ecr.aws/lambda/python:3.9
 
-WORKDIR /app
+# העתקת קבצי הדרישות
+COPY req.txt ${LAMBDA_TASK_ROOT}
 
-# התקנת תלויות מערכת
-RUN apt-get update && apt-get install -y libpq-dev gcc
+# התקנת החבילות (כולל mangum שחייב להיות ב-requirements.txt)
+RUN pip install -r req.txt
 
-# העתקת ה-requirements (שים לב ששינינו את השם)
-COPY req.txt .
-RUN pip install --no-cache-dir -r req.txt
+# העתקת שאר הקוד לתיקייה המיוחדת של למבדה
+COPY . ${LAMBDA_TASK_ROOT}
 
-COPY . .
-
-# חשיפת הפורט של FastAPI
-EXPOSE 8000
-
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# הגדרת הפקודה - הפעם למבדה תבין בדיוק מה זה אומר
+CMD [ "main.handler" ]
