@@ -1,0 +1,89 @@
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from mangum import Mangum
+import shutil
+import os
+import pandas as pd
+from db_handler import get_db_connection
+from nutrition_ai import analyze_food_image
+from recommender_engine import recommend_food
+
+app = FastAPI()
+
+# אפשור גישה מה-Frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.get("/users")
+def get_users():
+    conn = get_db_connection()
+    if not conn: raise HTTPException(status_code=500, detail="DB Connection Failed")
+    try:
+        df = pd.read_sql("SELECT user_id, full_name, is_pregnant, gender FROM users ORDER BY user_id", conn)
+        return df.to_dict(orient="records")
+    finally: conn.close()
+
+@app.post("/analyze")
+async def analyze_meal_endpoint(user_id: int = Form(...), file: UploadFile = File(...)):
+    temp_filename = f"/tmp/{file.filename}" # שימוש ב-tmp עבור Lambda
+    try:
+        # ב-Windows מקומי יש לשנות ל-temp_filename = file.filename אם /tmp לא קיים
+        if os.name == 'nt': temp_filename = file.filename 
+
+        with open(temp_filename, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        analysis_result = analyze_food_image(temp_filename, user_id=user_id)
+        if not analysis_result: raise HTTPException(status_code=500, detail="Analysis failed")
+        return {"status": "success", "data": analysis_result}
+    finally:
+        if os.path.exists(temp_filename): os.remove(temp_filename)
+
+@app.get("/report/{user_id}")
+def get_report(user_id: int):
+    conn = get_db_connection()
+    if not conn: raise HTTPException(status_code=500, detail="DB Error")
+    try:
+        user_query = "SELECT gender, (CURRENT_DATE - date_of_birth)/30, CASE WHEN is_pregnant THEN 'pregnancy' ELSE 'normal' END FROM users WHERE user_id = %s"
+        cur = conn.cursor()
+        cur.execute(user_query, (user_id,))
+        prof = cur.fetchone()
+        if not prof: return {"error": "User not found"}
+        gender, age_months, condition = prof
+        
+        query = """
+        WITH latest_meal AS (
+            SELECT meal_id, ai_analysis_summary, created_at FROM meals WHERE user_id = %s ORDER BY created_at DESC LIMIT 1
+        ),
+        meal_intake AS (
+            SELECT cm.nutrient_name, SUM(cm.amount) as total_consumed, MAX(cm.unit) as unit
+            FROM consumed_micros cm
+            JOIN food_items fi ON cm.item_id = fi.item_id
+            JOIN latest_meal lm ON fi.meal_id = lm.meal_id
+            GROUP BY cm.nutrient_name
+        )
+        SELECT mi.nutrient_name, mi.total_consumed, ns.daily_value as target_value, mi.unit, (mi.total_consumed / ns.daily_value)*100 as percentage
+        FROM meal_intake mi
+        JOIN nutrient_standards ns ON mi.nutrient_name = ns.nutrient_name
+        WHERE ns.gender IN (%s, 'both') AND ns.min_age_months <= %s AND ns.max_age_months >= %s AND ns.condition = %s
+        ORDER BY percentage ASC
+        """
+        df = pd.read_sql(query, conn, params=(user_id, gender, age_months, age_months, condition))
+        report_data = df.to_dict(orient="records")
+        
+        summary_df = pd.read_sql("SELECT ai_analysis_summary FROM meals WHERE user_id = %s ORDER BY created_at DESC LIMIT 1", conn, params=(user_id,))
+        summary_text = summary_df.iloc[0]['ai_analysis_summary'] if not summary_df.empty else ""
+        
+        return {"report": report_data, "summary": summary_text}
+    finally: conn.close()
+
+@app.get("/recommendations/{user_id}")
+def get_recommendations_endpoint(user_id: int):
+    return recommend_food(user_id)
+
+handler = Mangum(app)
