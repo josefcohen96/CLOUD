@@ -27,7 +27,6 @@ S3_BUCKET = "nutrition-app-images"
 s3_client = boto3.client('s3')
 
 def upload_to_s3(file_path, original_name):
-    """קריאת הקובץ מהנתיב הזמני והעלאה ל-S3"""
     unique_name = f"{uuid.uuid4()}-{original_name}"
     try:
         with open(file_path, "rb") as f:
@@ -39,9 +38,9 @@ def upload_to_s3(file_path, original_name):
             )
         return f"https://{S3_BUCKET}.s3.amazonaws.com/{unique_name}"
     except Exception as e:
-        print(f"Error uploading to S3: {e}")
+        print(f"❌ S3 ERROR: {e}")
         return None
-
+    
 @app.get("/users")
 def get_users():
     conn = get_db_connection()

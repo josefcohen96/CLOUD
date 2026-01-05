@@ -19,8 +19,8 @@ def encode_image_to_base64(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
 
-# --- השינוי החשוב: הוספנו פרמטר user_id ---
-def analyze_food_image(image_path, user_id=1):
+# --- עדכון: הוספת image_url כפרמטר ---
+def analyze_food_image(image_path, user_id=1, image_url=None):
     client = get_bedrock_client()
     if not client:
         return None
@@ -34,21 +34,10 @@ def analyze_food_image(image_path, user_id=1):
     system_prompt = """
     You are an advanced clinical dietitian AI. 
     Your goal is to provide a highly detailed nutritional analysis of food images.
-    You must estimate not just macros, but a comprehensive profile of micronutrients (vitamins and minerals).
-    If a food source is known to contain specific nutrients (e.g., meat has B12 and Zinc), you must estimate them.
     """
 
     user_message = """
     Analyze this meal image with high precision.
-    1. Identify all food items.
-    2. Estimate weight in grams (be realistic).
-    3. Output the nutritional data in JSON format.
-    
-    For each item, you MUST estimate:
-    - Macros: Calories, Protein, Carbs, Fat.
-    - Micros: Vitamin A, C, D, E, K, B-Vitamins (B1, B2, B3, B6, B12, Folate), 
-      Calcium, Iron, Magnesium, Phosphorus, Potassium, Sodium, Zinc.
-
     Output structure (JSON only):
     {
         "overall_analysis": "Summary...",
@@ -80,22 +69,17 @@ def analyze_food_image(image_path, user_id=1):
     }
 
     try:
-        print(f"Sending image to AWS Bedrock ({MODEL_ID})...")
+        print(f"Sending image to AWS Bedrock...")
         response = client.invoke_model(modelId=MODEL_ID, body=json.dumps(payload))
-
         result_body = json.loads(response['body'].read())
         response_text = result_body['content'][0]['text']
         
-        # שמירה ל-DB עם ה-ID של המשתמש הנכון
-        print(f"\n💾 Saving to Database for User {user_id}...")
-        save_meal_to_db(user_id=user_id, image_url="uploaded_from_web", ai_json_text=response_text)
+        # --- תיקון: שליחת ה-URL האמיתי מה-S3 במקום טקסט קבוע ---
+        print(f"\n💾 Saving to Database for User {user_id} with URL: {image_url}")
+        save_meal_to_db(user_id=user_id, image_url=image_url, ai_json_text=response_text)
         
         return response_text
 
     except ClientError as e:
         print(f"Error calling Bedrock: {e}")
         return None
-
-if __name__ == "__main__":
-    # בדיקה מקומית (לא תרוץ כשהאתר קורא לקובץ)
-    analyze_food_image("test_meal.jpg", user_id=1)
