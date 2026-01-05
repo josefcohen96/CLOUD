@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_PASS=Karina1256  # כאן אנחנו מכניסים את הסיסמה (בפועל עדיף קובץ .env)
+      - AWS_DEFAULT_REGION=us-east-1
+      # הוסף כאן מפתחות AWS אם הם לא מוגדרים במחשב
+      # - AWS_ACCESS_KEY_ID=...
+      # - AWS_SECRET_ACCESS_KEY=...
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:80" # אנחנו ממפים את פורט 80 של הקונטיינר ל-5173 במחשב שלך
+    depends_on:
+      - backend
