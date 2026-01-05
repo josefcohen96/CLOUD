@@ -74,8 +74,10 @@ function App() {
 
   const getMetricValue = (nutrientName) => {
     if (!reportData || !reportData.report) return 0;
-    const item = reportData.report.find(i => i.nutrient_name === nutrientName);
-    return item ? Math.round(item.percentage) : 0;
+    const item = reportData.report.find(i =>
+      i.nutrient_name.toLowerCase().replace(/_/g, ' ') ===
+      nutrientName.toLowerCase().replace(/_/g, ' ')
+    ); return item ? Math.round(item.percentage) : 0;
   };
 
   return (
