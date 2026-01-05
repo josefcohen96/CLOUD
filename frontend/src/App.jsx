@@ -4,7 +4,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, Res
 import { Activity, Utensils, Zap, FileUp, HeartPulse, Droplet, User, Calendar } from 'lucide-react'; // אייקונים חדשים
 import './App.css'
 
-const API_URL = "http://127.0.0.1:8000"; 
+// const API_URL = "http://127.0.0.1:8000"; 
+const API_URL = "https://ldclmiawsh.execute-api.us-east-1.amazonaws.com/default/Nutrition-Backend"; 
 
 function App() {
   const [users, setUsers] = useState([]);

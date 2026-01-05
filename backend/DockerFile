@@ -6,8 +6,8 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y libpq-dev gcc
 
 # העתקת ה-requirements (שים לב ששינינו את השם)
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY req.txt .
+RUN pip install --no-cache-dir -r req.txt
 
 COPY . .
 

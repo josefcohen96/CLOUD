@@ -6,7 +6,7 @@ import json
 DB_HOST = "database-1.cmtkkqyiagdy.us-east-1.rds.amazonaws.com"
 DB_NAME = "postgres"
 DB_USER = "postgres"
-DB_PASS = "Karina1256"  # <--- אל תשכח לשים את הסיסמה שלך!
+DB_PASS = "Karina1256" 
 
 def get_db_connection():
     try:
