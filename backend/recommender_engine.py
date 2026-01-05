@@ -27,11 +27,16 @@ NUTRIENT_MAP = {
 }
 
 def get_deficiency_amounts(user_id):
-    """מחשב כמה בדיוק חסר למשתמש מכל רכיב"""
+    """מחשב כמה בדיוק חסר למשתמש מכל רכיב נכון להיום"""
     conn = get_db_connection()
     
-    # 1. שליפת פרופיל
-    user_query = "SELECT gender, (CURRENT_DATE - date_of_birth) / 30, CASE WHEN is_pregnant THEN 'pregnancy' WHEN is_lactating THEN 'lactation' ELSE 'normal' END FROM users WHERE user_id = %s"
+    # 1. שליפת פרופיל משתמש
+    user_query = """
+        SELECT gender, 
+               (EXTRACT(YEAR FROM age(CURRENT_DATE, date_of_birth)) * 12 + EXTRACT(MONTH FROM age(CURRENT_DATE, date_of_birth))) as age_months,
+               CASE WHEN is_pregnant THEN 'pregnancy' WHEN is_lactating THEN 'lactation' ELSE 'normal' END 
+        FROM users WHERE user_id = %s
+    """
     cur = conn.cursor()
     cur.execute(user_query, (user_id,))
     prof = cur.fetchone()
@@ -40,7 +45,7 @@ def get_deficiency_amounts(user_id):
         return {}
     gender, age_months, condition = prof
     
-    # 2. שליפת צריכה יומית מול יעד
+    # 2. שליפת צריכה יומית מצטברת מול יעד ה-RDA
     query = """
     WITH daily_sum AS (
         SELECT cm.nutrient_name, SUM(cm.amount) as consumed
@@ -70,10 +75,8 @@ def get_deficiency_amounts(user_id):
         consumed = row['consumed']
         target = row['target']
         
-        # אם יש חוסר (פחות מ-100%)
         if target > 0 and consumed < target:
             missing_val = target - consumed
-            # מנרמלים את השם (למשל 'Vitamin A' -> 'vitamin_a')
             key = row['nutrient_name'].lower().replace(' ', '_')
             
             if key in NUTRIENT_MAP:
@@ -83,17 +86,19 @@ def get_deficiency_amounts(user_id):
     return deficiencies
 
 def recommend_food(user_id, max_items=3):
-    """האלגוריתם החמדן האיטרטיבי"""
+    """אלגוריתם בחירה חמדן להשגת כיסוי מקסימלי של חוסרים תזונתיים"""
     current_gaps = get_deficiency_amounts(user_id)
     if not current_gaps:
         return []
 
     conn = get_db_connection()
+    # שליפת מאגר המאכלים הפוטנציאליים להמלצה
     foods_df = pd.read_sql("SELECT * FROM recommendation_foods", conn)
     conn.close()
     
     recommended_list = []
     
+    # לולאת בחירה איטרטיבית להשגת גיוון (Diversity)
     for _ in range(max_items):
         if not current_gaps: break
 
@@ -102,6 +107,7 @@ def recommend_food(user_id, max_items=3):
         best_reason = ""
         
         for idx, food in foods_df.iterrows():
+            # מניעת המלצה על אותו מאכל פעמיים
             if food['food_name'] in [r['food_name'] for r in recommended_list]:
                 continue
                 
@@ -111,22 +117,16 @@ def recommend_food(user_id, max_items=3):
                 food_amount = food[nutrient_col]
                 if food_amount > 0:
                     covered = min(food_amount, missing_amount)
-                    # ניקוד: אחוז הכיסוי של החוסר
+                    # ניקוד המבוסס על אחוז הכיסוי של החוסר הספציפי
                     importance = (covered / missing_amount) * 100
                     score += importance
                     
-                    if importance > 15: # רק אם זה תורם משמעותית
-                        # === התיקון מתחיל כאן ===
-                        # במקום לקחת רק את המילה הראשונה, ניקח את הכל חוץ מהסוף (היחידה)
-                        # דוגמה: 'vitamin_a_mcg' -> נפרק ל-['vitamin', 'a', 'mcg'] -> ניקח ['vitamin', 'a']
+                    if importance > 15: # הצגת רכיבים משמעותיים בלבד בסיבת ההמלצה
                         parts = nutrient_col.split('_')
-                        clean_parts = parts[:-1] 
-                        clean_name = " ".join(clean_parts).title() # יהפוך ל-"Vitamin A"
-                        # === סוף התיקון ===
-                        
-                        impacts.append(f"{clean_name} ({int(importance)}%)")
+                        clean_name = " ".join(parts[:-1]).title() 
+                        impacts.append(f"{clean_name} (+{int(importance)}%)")
             
-            # פקטור יעילות: ניקוד חלקי קלוריות
+            # פונקציית מטרה: מקסום ערך תזונתי במינימום קלוריות (Efficiency Factor)
             final_score = score / (food['calories'] + 10)
             
             if final_score > best_score:
@@ -134,6 +134,7 @@ def recommend_food(user_id, max_items=3):
                 best_food = food
                 best_reason = ", ".join(impacts[:3])
 
+        # הוספת המאכל הטוב ביותר שנמצא בסיבוב הנוכחי
         if best_food is not None and best_score > 0.5:
             recommended_list.append({
                 "food_name": best_food['food_name'],
@@ -143,7 +144,7 @@ def recommend_food(user_id, max_items=3):
                 "tags": best_food['tags']
             })
             
-            # עדכון חוסרים לסיבוב הבא
+            # עדכון החוסרים (Update Gaps) לקראת האיטרציה הבאה
             keys_to_remove = []
             for nutrient in current_gaps:
                 provided = best_food[nutrient]
@@ -151,7 +152,8 @@ def recommend_food(user_id, max_items=3):
                 if current_gaps[nutrient] <= 0:
                     keys_to_remove.append(nutrient)
             
-            for k in keys_to_remove: del current_gaps[k]
+            for k in keys_to_remove: 
+                del current_gaps[k]
         else:
             break
 
