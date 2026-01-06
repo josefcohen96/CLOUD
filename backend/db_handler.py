@@ -1,14 +1,18 @@
 import psycopg2
 import re
 import json
+import os
 
 # --- פרטי התחברות ---
-DB_HOST = "database-1.cmtkkqyiagdy.us-east-1.rds.amazonaws.com"
-DB_NAME = "postgres"
-DB_USER = "postgres"
-DB_PASS = "Karina1256" 
+DB_HOST = os.getenv("DB_HOST", "database-1.cmtkkqyiagdy.us-east-1.rds.amazonaws.com")
+DB_NAME = os.getenv("DB_NAME", "postgres")
+DB_USER = os.getenv("DB_USER", "postgres")
+DB_PASS = os.getenv("DB_PASS", "")  # חובה להגדיר ב-environment variables 
 
 def get_db_connection():
+    if not DB_PASS:
+        print("❌ Error: DB_PASS environment variable is not set!")
+        return None
     try:
         conn = psycopg2.connect(
             host=DB_HOST,

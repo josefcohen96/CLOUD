@@ -55,38 +55,45 @@ def get_users():
 
 @app.post("/analyze")
 async def analyze_meal_endpoint(user_id: int = Form(...), file: UploadFile = File(...)):
-    temp_filename = f"/tmp/{file.filename}"
-    if os.name == 'nt': temp_filename = file.filename 
-
+    # יצירת נתיב זמני בטוח לכל מערכת הפעלה
+    import tempfile
+    if os.name == 'nt':
+        temp_dir = os.path.join(os.getenv('TEMP', os.getcwd()), 'nutrition_app')
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_filename = os.path.join(temp_dir, f"{uuid.uuid4()}_{file.filename}")
+    else:
+        temp_filename = f"/tmp/{uuid.uuid4()}_{file.filename}"
+    print(f"🔍 Starting analysis for user {user_id} and file {file.filename}")
     try:
         # 1. קריאת תוכן הקובץ
         file_content = await file.read()
         
         # 2. יצירת מפתח ייחודי לתמונה (MD5 Hash)
-        file_hash = hashlib.md5(file_content).hexdigest()
-        cache_key = f"img_hash_{file_hash}"
+        # file_hash = hashlib.md5(file_content).hexdigest()
+        # cache_key = f"img_hash_{file_hash}"
 
-        # 3. בדיקה ב-Valkey (Redis) אם כבר ניתחנו את התמונה הזו בעבר
-        cached_result = get_cached_nutrition(cache_key)
-        if cached_result:
-            print(f"Cache Hit for image {file.filename}! Returning results from Valkey.")
-            return {"status": "success", "data": cached_result, "cached": True}
+        # # 3. בדיקה ב-Valkey (Redis) אם כבר ניתחנו את התמונה הזו בעבר
+        # cached_result = get_cached_nutrition(cache_key)
+        # if cached_result:
+        #     print(f"Cache Hit for image {file.filename}! Returning results from Valkey.")
+        #     return {"status": "success", "data": cached_result, "cached": True}
 
-        # 4. אם אין ב-Cache - ממשיכים ללוגיקה הרגילה
-        print(f"Cache Miss for {file.filename}. Starting AI analysis...")
+        # # 4. אם אין ב-Cache - ממשיכים ללוגיקה הרגילה
+        # print(f"Cache Miss for {file.filename}. Starting AI analysis...")
         
         # כיוון שקראנו את ה-Stream עם await file.read(), צריך לכתוב אותו לקובץ זמני
         with open(temp_filename, "wb") as buffer:
             buffer.write(file_content)
         
         image_url = upload_to_s3(temp_filename, file.filename)
+        print(f"Uploaded image to S3: {image_url}")
         analysis_result = analyze_food_image(temp_filename, user_id=user_id, image_url=image_url)
-        
+        print(f"Analysis result: {analysis_result}")
         if not analysis_result: 
             raise HTTPException(status_code=500, detail="Analysis failed")
             
         # 5. שמירת התוצאה ב-Valkey לשימוש עתידי (למשל ל-24 שעות)
-        set_nutrition_cache(cache_key, analysis_result, expire_hours=24)
+        # set_nutrition_cache(cache_key, analysis_result, expire_hours=24)
 
         return {"status": "success", "data": analysis_result, "image_url": image_url, "cached": False}
 
@@ -104,26 +111,33 @@ def get_report(user_id: int, meal_id: int = Query(None)):
         # 1. שליפת נתוני משתמש
         cur.execute("SELECT gender, (CURRENT_DATE - date_of_birth)/30, CASE WHEN is_pregnant THEN 'pregnancy' ELSE 'normal' END FROM users WHERE user_id = %s", (user_id,))
         prof = cur.fetchone()
+        if not prof:
+            raise HTTPException(status_code=404, detail="User not found")
         gender, age_months, condition = prof
         
-        # 2. פילטר לפי ארוחה או יום
-        meal_filter = f"m.meal_id = {meal_id}" if meal_id else f"m.user_id = {user_id} AND m.created_at::date = CURRENT_DATE"
+        # 2. פילטר לפי ארוחה או יום - תיקון SQL Injection
+        if meal_id:
+            meal_filter = "m.meal_id = %s"
+            meal_params = (meal_id,)
+        else:
+            meal_filter = "m.user_id = %s AND m.created_at::date = CURRENT_DATE"
+            meal_params = (user_id,)
         
         # 3. שאילתה שמביאה את כל הרכיבים מהתקן ומצמידה אליהם צריכה (אם יש)
-        query = f"""
+        query = """
         SELECT 
             ns.nutrient_name,
             COALESCE(di.total, 0) as total_consumed,
             ns.daily_value as target_value,
             ns.unit,
-            (COALESCE(di.total, 0) / ns.daily_value) * 100 as percentage
+            (COALESCE(di.total, 0) / NULLIF(ns.daily_value, 0)) * 100 as percentage
         FROM nutrient_standards ns
         LEFT JOIN (
             SELECT cm.nutrient_name, SUM(cm.amount) as total
             FROM consumed_micros cm
             JOIN food_items fi ON cm.item_id = fi.item_id
             JOIN meals m ON fi.meal_id = m.meal_id
-            WHERE {meal_filter}
+            WHERE """ + meal_filter + """
             GROUP BY cm.nutrient_name
         ) di ON LOWER(ns.nutrient_name) = LOWER(di.nutrient_name)
         WHERE ns.gender IN (%s, 'both') 
@@ -131,7 +145,9 @@ def get_report(user_id: int, meal_id: int = Query(None)):
           AND ns.condition = %s
         ORDER BY ns.nutrient_name ASC;
         """
-        report_df = pd.read_sql(query, conn, params=(gender, age_months, age_months, condition))
+        # שילוב הפרמטרים בצורה בטוחה
+        all_params = meal_params + (gender, age_months, age_months, condition)
+        report_df = pd.read_sql(query, conn, params=all_params)
         
         # 4. שליפת סיכום ותמונה
         info_query = "SELECT ai_analysis_summary, image_url FROM meals WHERE " + ("meal_id = %s" if meal_id else "user_id = %s ORDER BY created_at DESC LIMIT 1")
@@ -143,7 +159,13 @@ def get_report(user_id: int, meal_id: int = Query(None)):
             "summary": res[0] if res else "",
             "image_url": res[1] if res else None
         }
-    finally: conn.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in get_report: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+    finally: 
+        if conn: conn.close()
 
 @app.get("/recommendations/{user_id}")
 def get_recommendations_endpoint(user_id: int):

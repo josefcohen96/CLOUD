@@ -13,16 +13,19 @@ const MealDetails = ({ meal, onClose, userId }) => {
 
   // שליפת נתוני גרף עבור הארוחה הספציפית
   useEffect(() => {
-    if (meal?.meal_id) {
+    if (meal?.meal_id && userId) {
       setLoadingReport(true);
       axios.get(`${API_URL}/report/${userId}?meal_id=${meal.meal_id}`)
         .then(res => {
           setMealReport(res.data.report || []);
         })
-        .catch(err => console.error("Error fetching meal report:", err))
+        .catch(err => {
+          console.error("Error fetching meal report:", err);
+          setMealReport([]);
+        })
         .finally(() => setLoadingReport(false));
     }
-  }, [meal.meal_id, userId]);
+  }, [meal?.meal_id, userId]);
 
   try {
     const parsedData = typeof meal.ai_analysis_summary === 'string'

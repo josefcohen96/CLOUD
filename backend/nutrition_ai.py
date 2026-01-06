@@ -76,10 +76,16 @@ def analyze_food_image(image_path, user_id=1, image_url=None):
         
         # --- תיקון: שליחת ה-URL האמיתי מה-S3 במקום טקסט קבוע ---
         print(f"\n💾 Saving to Database for User {user_id} with URL: {image_url}")
-        save_meal_to_db(user_id=user_id, image_url=image_url, ai_json_text=response_text)
+        if image_url:  # רק אם יש URL תקין
+            save_meal_to_db(user_id=user_id, image_url=image_url, ai_json_text=response_text)
+        else:
+            print("⚠️ Warning: image_url is None, skipping database save")
         
         return response_text
 
     except ClientError as e:
         print(f"Error calling Bedrock: {e}")
+        return None
+    except Exception as e:
+        print(f"Unexpected error in analyze_food_image: {e}")
         return None

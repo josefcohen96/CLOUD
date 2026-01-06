@@ -96,7 +96,7 @@ function App() {
 
         <div className="control-group">
           <label><User size={14} style={{ display: 'inline', marginRight: 5 }} /> Select Patient</label>
-          <select onChange={(e) => setSelectedUserId(e.target.value)} value={selectedUserId || ""}>
+          <select onChange={(e) => setSelectedUserId(Number(e.target.value))} value={selectedUserId || ""}>
             {users.map(u => (
               <option key={u.user_id} value={u.user_id}>
                 {u.full_name} {u.is_pregnant ? '(Pregnant)' : ''}

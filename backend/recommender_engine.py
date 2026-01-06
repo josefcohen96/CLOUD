@@ -29,61 +29,68 @@ NUTRIENT_MAP = {
 def get_deficiency_amounts(user_id):
     """מחשב כמה בדיוק חסר למשתמש מכל רכיב נכון להיום"""
     conn = get_db_connection()
-    
-    # 1. שליפת פרופיל משתמש
-    user_query = """
-        SELECT gender, 
-               (EXTRACT(YEAR FROM age(CURRENT_DATE, date_of_birth)) * 12 + EXTRACT(MONTH FROM age(CURRENT_DATE, date_of_birth))) as age_months,
-               CASE WHEN is_pregnant THEN 'pregnancy' WHEN is_lactating THEN 'lactation' ELSE 'normal' END 
-        FROM users WHERE user_id = %s
-    """
-    cur = conn.cursor()
-    cur.execute(user_query, (user_id,))
-    prof = cur.fetchone()
-    if not prof: 
-        conn.close()
+    if not conn:
         return {}
-    gender, age_months, condition = prof
     
-    # 2. שליפת צריכה יומית מצטברת מול יעד ה-RDA
-    query = """
-    WITH daily_sum AS (
-        SELECT cm.nutrient_name, SUM(cm.amount) as consumed
-        FROM consumed_micros cm
-        JOIN food_items fi ON cm.item_id = fi.item_id
-        JOIN meals m ON fi.meal_id = m.meal_id
-        WHERE m.user_id = %s AND m.created_at::date = CURRENT_DATE
-        GROUP BY cm.nutrient_name
-    )
-    SELECT 
-        ns.nutrient_name,
-        COALESCE(ds.consumed, 0) as consumed,
-        ns.daily_value as target
-    FROM nutrient_standards ns
-    LEFT JOIN daily_sum ds ON ns.nutrient_name = ds.nutrient_name
-    WHERE ns.gender IN (%s, 'both') 
-      AND ns.min_age_months <= %s 
-      AND ns.max_age_months >= %s
-      AND ns.condition = %s
-    """
-    
-    df = pd.read_sql(query, conn, params=(user_id, gender, age_months, age_months, condition))
-    conn.close()
-    
-    deficiencies = {}
-    for _, row in df.iterrows():
-        consumed = row['consumed']
-        target = row['target']
+    try:
+        # 1. שליפת פרופיל משתמש
+        user_query = """
+            SELECT gender, 
+                   (EXTRACT(YEAR FROM age(CURRENT_DATE, date_of_birth)) * 12 + EXTRACT(MONTH FROM age(CURRENT_DATE, date_of_birth))) as age_months,
+                   CASE WHEN is_pregnant THEN 'pregnancy' WHEN is_lactating THEN 'lactation' ELSE 'normal' END 
+            FROM users WHERE user_id = %s
+        """
+        cur = conn.cursor()
+        cur.execute(user_query, (user_id,))
+        prof = cur.fetchone()
+        if not prof: 
+            return {}
+        gender, age_months, condition = prof
         
-        if target > 0 and consumed < target:
-            missing_val = target - consumed
-            key = row['nutrient_name'].lower().replace(' ', '_')
+        # 2. שליפת צריכה יומית מצטברת מול יעד ה-RDA
+        query = """
+        WITH daily_sum AS (
+            SELECT cm.nutrient_name, SUM(cm.amount) as consumed
+            FROM consumed_micros cm
+            JOIN food_items fi ON cm.item_id = fi.item_id
+            JOIN meals m ON fi.meal_id = m.meal_id
+            WHERE m.user_id = %s AND m.created_at::date = CURRENT_DATE
+            GROUP BY cm.nutrient_name
+        )
+        SELECT 
+            ns.nutrient_name,
+            COALESCE(ds.consumed, 0) as consumed,
+            ns.daily_value as target
+        FROM nutrient_standards ns
+        LEFT JOIN daily_sum ds ON ns.nutrient_name = ds.nutrient_name
+        WHERE ns.gender IN (%s, 'both') 
+          AND ns.min_age_months <= %s 
+          AND ns.max_age_months >= %s
+          AND ns.condition = %s
+        """
+        
+        df = pd.read_sql(query, conn, params=(user_id, gender, age_months, age_months, condition))
+        
+        deficiencies = {}
+        for _, row in df.iterrows():
+            consumed = row['consumed']
+            target = row['target']
             
-            if key in NUTRIENT_MAP:
-                db_col = NUTRIENT_MAP[key]
-                deficiencies[db_col] = missing_val
+            if target > 0 and consumed < target:
+                missing_val = target - consumed
+                key = row['nutrient_name'].lower().replace(' ', '_')
+                
+                if key in NUTRIENT_MAP:
+                    db_col = NUTRIENT_MAP[key]
+                    deficiencies[db_col] = missing_val
 
-    return deficiencies
+        return deficiencies
+    except Exception as e:
+        print(f"Error in get_deficiency_amounts: {e}")
+        return {}
+    finally:
+        if conn:
+            conn.close()
 
 def recommend_food(user_id, max_items=3):
     """אלגוריתם בחירה חמדן להשגת כיסוי מקסימלי של חוסרים תזונתיים"""
@@ -92,9 +99,12 @@ def recommend_food(user_id, max_items=3):
         return []
 
     conn = get_db_connection()
-    # שליפת מאגר המאכלים הפוטנציאליים להמלצה
-    foods_df = pd.read_sql("SELECT * FROM recommendation_foods", conn)
-    conn.close()
+    if not conn:
+        return []
+    
+    try:
+        # שליפת מאגר המאכלים הפוטנציאליים להמלצה
+        foods_df = pd.read_sql("SELECT * FROM recommendation_foods", conn)
     
     recommended_list = []
     
@@ -157,4 +167,10 @@ def recommend_food(user_id, max_items=3):
         else:
             break
 
-    return recommended_list
+        return recommended_list
+    except Exception as e:
+        print(f"Error in recommend_food: {e}")
+        return []
+    finally:
+        if conn:
+            conn.close()
