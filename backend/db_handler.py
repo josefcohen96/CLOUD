@@ -79,24 +79,25 @@ def parse_quantity(value_str):
     return 0, ""
 
 def save_meal_to_db(user_id, image_url, ai_json_text):
-    print(f"\n🚀 מתחיל שמירה ל-DB (User: {user_id})")
+    print(f"🚀 Database Save Started - User: {user_id}, URL: {image_url}")
     conn = get_db_connection()
     if not conn:
         return
 
     try:
+        # כאן אנחנו משתמשים ב-ai_json_text שקיבלנו
         data = extract_json_from_text(ai_json_text)
         if not data:
             return
-
+        
         cur = conn.cursor()
-
-        # 1. Meals
         summary = data.get('overall_analysis', 'No summary')
+
         cur.execute("""
             INSERT INTO meals (user_id, image_url, ai_analysis_summary)
             VALUES (%s, %s, %s) RETURNING meal_id;
         """, (user_id, image_url, summary))
+
         meal_id = cur.fetchone()[0]
         print(f"💾 ארוחה נשמרה! (ID: {meal_id})")
         
