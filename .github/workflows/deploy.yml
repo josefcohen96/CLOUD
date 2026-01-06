@@ -20,7 +20,7 @@ jobs:
       - name: Install dependencies
         run: |
           # התקנה מתוך תיקיית ה-backend
-          pip install -r backend/requirements.txt pytest 
+          pip install -r backend/req.txt pytest 
 
       - name: Run Unit Tests
         run: |
