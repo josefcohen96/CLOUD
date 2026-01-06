@@ -10,6 +10,8 @@ import uuid
 from db_handler import get_db_connection
 from nutrition_ai import analyze_food_image
 from recommender_engine import recommend_food
+import hashlib
+from cache_handler import get_cached_nutrition, set_nutrition_cache
 
 app = FastAPI(root_path="/default")
 
@@ -57,19 +59,39 @@ async def analyze_meal_endpoint(user_id: int = Form(...), file: UploadFile = Fil
     if os.name == 'nt': temp_filename = file.filename 
 
     try:
+        # 1. קריאת תוכן הקובץ
+        file_content = await file.read()
+        
+        # 2. יצירת מפתח ייחודי לתמונה (MD5 Hash)
+        file_hash = hashlib.md5(file_content).hexdigest()
+        cache_key = f"img_hash_{file_hash}"
+
+        # 3. בדיקה ב-Valkey (Redis) אם כבר ניתחנו את התמונה הזו בעבר
+        cached_result = get_cached_nutrition(cache_key)
+        if cached_result:
+            print(f"Cache Hit for image {file.filename}! Returning results from Valkey.")
+            return {"status": "success", "data": cached_result, "cached": True}
+
+        # 4. אם אין ב-Cache - ממשיכים ללוגיקה הרגילה
+        print(f"Cache Miss for {file.filename}. Starting AI analysis...")
+        
+        # כיוון שקראנו את ה-Stream עם await file.read(), צריך לכתוב אותו לקובץ זמני
         with open(temp_filename, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+            buffer.write(file_content)
         
         image_url = upload_to_s3(temp_filename, file.filename)
-        
         analysis_result = analyze_food_image(temp_filename, user_id=user_id, image_url=image_url)
         
         if not analysis_result: 
             raise HTTPException(status_code=500, detail="Analysis failed")
             
-        return {"status": "success", "data": analysis_result, "image_url": image_url}
+        # 5. שמירת התוצאה ב-Valkey לשימוש עתידי (למשל ל-24 שעות)
+        set_nutrition_cache(cache_key, analysis_result, expire_hours=24)
+
+        return {"status": "success", "data": analysis_result, "image_url": image_url, "cached": False}
 
     finally:
+        # ניקוי הקובץ הזמני
         if os.path.exists(temp_filename): 
             os.remove(temp_filename)
 
