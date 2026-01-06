@@ -7,6 +7,7 @@ import pandas as pd
 import json
 import boto3
 import uuid
+import tempfile
 from db_handler import get_db_connection
 from nutrition_ai import analyze_food_image
 from recommender_engine import recommend_food
@@ -47,16 +48,21 @@ def upload_to_s3(file_path, original_name):
 @app.get("/users")
 def get_users():
     conn = get_db_connection()
-    if not conn: raise HTTPException(status_code=500, detail="DB Connection Failed")
+    if not conn:
+        raise HTTPException(status_code=500, detail="DB Connection Failed - Check environment variables (DB_PASS, DB_HOST, etc.)")
     try:
         df = pd.read_sql("SELECT user_id, full_name, is_pregnant, gender FROM users ORDER BY user_id", conn)
         return df.to_dict(orient="records")
-    finally: conn.close()
+    except Exception as e:
+        print(f"Error in get_users: {e}")
+        raise HTTPException(status_code=500, detail=f"Error fetching users: {str(e)}")
+    finally:
+        if conn:
+            conn.close()
 
 @app.post("/analyze")
 async def analyze_meal_endpoint(user_id: int = Form(...), file: UploadFile = File(...)):
     # יצירת נתיב זמני בטוח לכל מערכת הפעלה
-    import tempfile
     if os.name == 'nt':
         temp_dir = os.path.join(os.getenv('TEMP', os.getcwd()), 'nutrition_app')
         os.makedirs(temp_dir, exist_ok=True)

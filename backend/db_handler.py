@@ -7,7 +7,8 @@ import os
 DB_HOST = os.getenv("DB_HOST", "database-1.cmtkkqyiagdy.us-east-1.rds.amazonaws.com")
 DB_NAME = os.getenv("DB_NAME", "postgres")
 DB_USER = os.getenv("DB_USER", "postgres")
-DB_PASS = os.getenv("DB_PASS", "")  # חובה להגדיר ב-environment variables 
+# ⚠️ WARNING: Fallback password only for testing. In production, always use environment variables!
+DB_PASS = os.getenv("DB_PASS", os.getenv("DATABASE_PASSWORD", "Karina1256"))  # Fallback for testing only 
 
 def get_db_connection():
     if not DB_PASS:

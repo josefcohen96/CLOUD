@@ -105,67 +105,67 @@ def recommend_food(user_id, max_items=3):
     try:
         # שליפת מאגר המאכלים הפוטנציאליים להמלצה
         foods_df = pd.read_sql("SELECT * FROM recommendation_foods", conn)
-    
-    recommended_list = []
-    
-    # לולאת בחירה איטרטיבית להשגת גיוון (Diversity)
-    for _ in range(max_items):
-        if not current_gaps: break
-
-        best_food = None
-        best_score = -1
-        best_reason = ""
         
-        for idx, food in foods_df.iterrows():
-            # מניעת המלצה על אותו מאכל פעמיים
-            if food['food_name'] in [r['food_name'] for r in recommended_list]:
-                continue
-                
-            score = 0
-            impacts = []
-            for nutrient_col, missing_amount in current_gaps.items():
-                food_amount = food[nutrient_col]
-                if food_amount > 0:
-                    covered = min(food_amount, missing_amount)
-                    # ניקוד המבוסס על אחוז הכיסוי של החוסר הספציפי
-                    importance = (covered / missing_amount) * 100
-                    score += importance
-                    
-                    if importance > 15: # הצגת רכיבים משמעותיים בלבד בסיבת ההמלצה
-                        parts = nutrient_col.split('_')
-                        clean_name = " ".join(parts[:-1]).title() 
-                        impacts.append(f"{clean_name} (+{int(importance)}%)")
-            
-            # פונקציית מטרה: מקסום ערך תזונתי במינימום קלוריות (Efficiency Factor)
-            final_score = score / (food['calories'] + 10)
-            
-            if final_score > best_score:
-                best_score = final_score
-                best_food = food
-                best_reason = ", ".join(impacts[:3])
+        recommended_list = []
+        
+        # לולאת בחירה איטרטיבית להשגת גיוון (Diversity)
+        for _ in range(max_items):
+            if not current_gaps: break
 
-        # הוספת המאכל הטוב ביותר שנמצא בסיבוב הנוכחי
-        if best_food is not None and best_score > 0.5:
-            recommended_list.append({
-                "food_name": best_food['food_name'],
-                "calories": best_food['calories'],
-                "serving": f"{best_food['serving_grams']}g",
-                "reason": best_reason,
-                "tags": best_food['tags']
-            })
+            best_food = None
+            best_score = -1
+            best_reason = ""
             
-            # עדכון החוסרים (Update Gaps) לקראת האיטרציה הבאה
-            keys_to_remove = []
-            for nutrient in current_gaps:
-                provided = best_food[nutrient]
-                current_gaps[nutrient] -= provided
-                if current_gaps[nutrient] <= 0:
-                    keys_to_remove.append(nutrient)
-            
-            for k in keys_to_remove: 
-                del current_gaps[k]
-        else:
-            break
+            for idx, food in foods_df.iterrows():
+                # מניעת המלצה על אותו מאכל פעמיים
+                if food['food_name'] in [r['food_name'] for r in recommended_list]:
+                    continue
+                    
+                score = 0
+                impacts = []
+                for nutrient_col, missing_amount in current_gaps.items():
+                    food_amount = food[nutrient_col]
+                    if food_amount > 0:
+                        covered = min(food_amount, missing_amount)
+                        # ניקוד המבוסס על אחוז הכיסוי של החוסר הספציפי
+                        importance = (covered / missing_amount) * 100
+                        score += importance
+                        
+                        if importance > 15: # הצגת רכיבים משמעותיים בלבד בסיבת ההמלצה
+                            parts = nutrient_col.split('_')
+                            clean_name = " ".join(parts[:-1]).title() 
+                            impacts.append(f"{clean_name} (+{int(importance)}%)")
+                
+                # פונקציית מטרה: מקסום ערך תזונתי במינימום קלוריות (Efficiency Factor)
+                final_score = score / (food['calories'] + 10)
+                
+                if final_score > best_score:
+                    best_score = final_score
+                    best_food = food
+                    best_reason = ", ".join(impacts[:3])
+
+            # הוספת המאכל הטוב ביותר שנמצא בסיבוב הנוכחי
+            if best_food is not None and best_score > 0.5:
+                recommended_list.append({
+                    "food_name": best_food['food_name'],
+                    "calories": best_food['calories'],
+                    "serving": f"{best_food['serving_grams']}g",
+                    "reason": best_reason,
+                    "tags": best_food['tags']
+                })
+                
+                # עדכון החוסרים (Update Gaps) לקראת האיטרציה הבאה
+                keys_to_remove = []
+                for nutrient in current_gaps:
+                    provided = best_food[nutrient]
+                    current_gaps[nutrient] -= provided
+                    if current_gaps[nutrient] <= 0:
+                        keys_to_remove.append(nutrient)
+                
+                for k in keys_to_remove: 
+                    del current_gaps[k]
+            else:
+                break
 
         return recommended_list
     except Exception as e:
