@@ -40,15 +40,7 @@ const MealDetails = ({ meal, onClose, userId }) => {
             <Sparkles size={18} />
             <span>סיכום קליני</span>
           </div>
-          {loadingReport ? (
-            <div className="loading-state">טוען נתונים תזונתיים...</div>
-          ) : mealReport.length === 0 ? (
-            <div className="empty-state">אין נתונים תזונתים זמינים לארוחה זו.</div>
-          ) : (
-            <div className="chart-section">
-              {/* כאן הגרף הקיים שלך */}
-            </div>
-          )}
+          
           <p className="analysis-paragraph">{data.overall_analysis || data.summary}</p>
         </div>
 
