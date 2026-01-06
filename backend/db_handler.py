@@ -83,7 +83,6 @@ def save_meal_to_db(user_id, image_url, ai_json_text):
     conn = get_db_connection()
     if not conn:
         return
-
     try:
         # כאן אנחנו משתמשים ב-ai_json_text שקיבלנו
         data = extract_json_from_text(ai_json_text)
