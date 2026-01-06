@@ -11,19 +11,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # שלב הבדיקות (CI)
+      # --- שלב הבדיקות (CI) ---
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
 
       - name: Install dependencies
-        run: pip install pytest psycopg2-binary boto3 fastapi pandas mangum
+        run: |
+          # התקנה מתוך תיקיית ה-backend
+          pip install -r backend/requirements.txt pytest 
 
       - name: Run Unit Tests
-        run: pytest test_logic.py || echo "No tests found yet"
+        run: |
+          # הרצת הבדיקות מתוך תיקיית ה-backend כדי שה-Imports יעבדו חלק
+          cd backend
+          pytest test_logic.py
 
-      # שלב הפריסה (CD)
+      # --- שלב הפריסה (CD) ---
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -41,7 +46,8 @@ jobs:
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
           IMAGE_TAG: latest
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          # בניית הדימוי מתוך תיקיית ה-backend (שם נמצא ה-Dockerfile)
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./backend
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
       - name: Update Lambda Function
