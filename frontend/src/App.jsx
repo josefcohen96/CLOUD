@@ -80,6 +80,12 @@ function App() {
     ); return item ? Math.round(item.percentage) : 0;
   };
 
+  const topNutrients = reportData?.report
+    ? [...reportData.report]
+      .sort((a, b) => b.percentage - a.percentage) // מיון מהגבוה לנמוך לפי אחוז מהקצובה היומית
+      .slice(0, 4) // לקיחת 4 הראשונים
+    : [];
+
   return (
     <div className="app-container">
       <aside className="sidebar">
@@ -137,30 +143,22 @@ function App() {
                 </div>
 
                 <div className="metrics-container">
-                  <div className="metric-item">
-                    <span className="metric-label">Iron</span>
-                    <span className="metric-val" style={{ color: getBarColor(getMetricValue('iron')) }}>
-                      {getMetricValue('iron')}%
-                    </span>
-                  </div>
-                  <div className="metric-item">
-                    <span className="metric-label">Calcium</span>
-                    <span className="metric-val" style={{ color: getBarColor(getMetricValue('calcium')) }}>
-                      {getMetricValue('calcium')}%
-                    </span>
-                  </div>
-                  <div className="metric-item">
-                    <span className="metric-label">B12</span>
-                    <span className="metric-val" style={{ color: getBarColor(getMetricValue('vitamin_b12')) }}>
-                      {getMetricValue('vitamin_b12')}%
-                    </span>
-                  </div>
-                  <div className="metric-item">
-                    <span className="metric-label">Vit C</span>
-                    <span className="metric-val" style={{ color: getBarColor(getMetricValue('vitamin_c')) }}>
-                      {getMetricValue('vitamin_c')}%
-                    </span>
-                  </div>
+                  {topNutrients.length > 0 ? (
+                    topNutrients.map((item, idx) => (
+                      <div className="metric-item" key={idx}>
+                        <span className="metric-label" style={{ textTransform: 'capitalize' }}>
+                          {item.nutrient_name.replace(/_/g, ' ')}
+                        </span>
+                        <span className="metric-val" style={{ color: getBarColor(item.percentage) }}>
+                          {Math.round(item.percentage)}%
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <p style={{ color: '#64748b', fontSize: '0.9rem', textAlign: 'center' }}>
+                      No nutrient data available for this meal.
+                    </p>
+                  )}
                 </div>
               </section>
 
