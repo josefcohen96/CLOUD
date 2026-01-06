@@ -23,7 +23,7 @@ app.add_middleware(
 )
 
 # הגדרת S3 - החלף לשם הבאקט שלך
-S3_BUCKET = "nutrition-app-images"
+S3_BUCKET = "nutrition-ai-images"
 s3_client = boto3.client('s3')
 
 def upload_to_s3(file_path, original_name):
@@ -34,7 +34,8 @@ def upload_to_s3(file_path, original_name):
                 Bucket=S3_BUCKET,
                 Key=unique_name,
                 Body=f,
-                ContentType="image/jpeg"
+                ContentType="image/jpeg",
+                ACL='public-read' 
             )
         return f"https://{S3_BUCKET}.s3.amazonaws.com/{unique_name}"
     except Exception as e:
