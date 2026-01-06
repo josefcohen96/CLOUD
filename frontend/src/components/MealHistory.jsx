@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { X, FileText, Calendar } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import './MealHistory.css'; // ייבוא העיצוב החדש
+import { Sparkles, Scale, Info } from 'lucide-react'; // תוסיף לייבואים
 
-// כתובת ה-API שלך
 const API_URL = "https://ldclmiawsh.execute-api.us-east-1.amazonaws.com/default";
 
 const MealDetails = ({ meal, onClose, userId }) => {
@@ -11,14 +12,11 @@ const MealDetails = ({ meal, onClose, userId }) => {
   const [loadingReport, setLoadingReport] = useState(false);
   let analysisContent = null;
 
-  // שליפת נתוני גרף עבור הארוחה הספציפית
   useEffect(() => {
     if (meal?.meal_id && userId) {
       setLoadingReport(true);
       axios.get(`${API_URL}/report/${userId}?meal_id=${meal.meal_id}`)
-        .then(res => {
-          setMealReport(res.data.report || []);
-        })
+        .then(res => setMealReport(res.data.report || []))
         .catch(err => {
           console.error("Error fetching meal report:", err);
           setMealReport([]);
@@ -27,61 +25,112 @@ const MealDetails = ({ meal, onClose, userId }) => {
     }
   }, [meal?.meal_id, userId]);
 
+
+  // בתוך קומפוננטת MealDetails:
   try {
-    const parsedData = typeof meal.ai_analysis_summary === 'string'
+    const data = typeof meal.ai_analysis_summary === 'string'
       ? JSON.parse(meal.ai_analysis_summary)
       : meal.ai_analysis_summary;
 
-    if (parsedData && parsedData.text) {
-      analysisContent = (
-        <div style={styles.analysisText}>
-          {parsedData.text.split('\n').map((paragraph, index) => (
-            <p key={index} style={styles.paragraph}>{paragraph}</p>
+    analysisContent = (
+      <div className="ai-analysis-container">
+        {/* סיכום מקצועי */}
+        <div className="professional-summary">
+          <div className="summary-header">
+            <Sparkles size={18} />
+            <span>סיכום קליני</span>
+          </div>
+          {loadingReport ? (
+            <div className="loading-state">טוען נתונים תזונתיים...</div>
+          ) : mealReport.length === 0 ? (
+            <div className="empty-state">אין נתונים תזונתים זמינים לארוחה זו.</div>
+          ) : (
+            <div className="chart-section">
+              {/* כאן הגרף הקיים שלך */}
+            </div>
+          )}
+          <p className="analysis-paragraph">{data.overall_analysis || data.summary}</p>
+        </div>
+
+        {/* פירוט מאכלים */}
+        <div className="food-items-grid">
+          {data.items?.map((item, idx) => (
+            <div key={idx} className="food-item-card">
+              <div className="item-header">
+                <span className="food-name">{item.food_name}</span>
+                <span className="food-weight">
+                  <Scale size={12} style={{ marginLeft: '4px' }} />
+                  {item.estimated_weight_grams}g
+                </span>
+              </div>
+
+              <div className="item-details-row">
+                <div className="detail-group">
+                  <span className="detail-label">קלוריות</span>
+                  <span className="detail-value">{item.macros?.calories} kcal</span>
+                </div>
+                <div className="detail-group">
+                  <span className="detail-label">חלבון</span>
+                  <span className="detail-value">{item.macros?.protein}g</span>
+                </div>
+              </div>
+
+              {item.micros && Object.keys(item.micros).length > 0 && (
+                <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed #f1f5f9' }}>
+                  <span className="detail-label">ויטמינים ומינרלים בולטים:</span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '5px' }}>
+                    {Object.entries(item.micros).map(([name, val]) => (
+                      <span key={name} style={{ fontSize: '0.8rem', background: '#f0f9ff', color: '#0369a1', padding: '2px 8px', borderRadius: '4px', border: '1px solid #bae6fd' }}>
+                        {name}: {val}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           ))}
         </div>
-      );
-    } else {
-      analysisContent = (
-        <pre style={styles.jsonPre}>
-          {JSON.stringify(parsedData, null, 2)}
-        </pre>
-      );
-    }
+      </div>
+    );
   } catch (e) {
-    analysisContent = <p style={styles.paragraph}>{meal.ai_analysis_summary}</p>;
+    // Fallback למקרה שהטקסט הוא לא JSON תקין
+    analysisContent = (
+      <div className="professional-summary">
+        <div className="summary-header"><Info size={18} /><span>ניתוח טקסטואלי</span></div>
+        <p className="analysis-paragraph">{meal.ai_analysis_summary}</p>
+      </div>
+    );
   }
 
   return (
-    <div style={styles.modalOverlay} onClick={onClose}>
-      <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-        <div style={styles.modalHeader}>
-          <h3 style={styles.modalTitle}>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3 className="modal-title">
             <FileText size={24} style={{ marginRight: '10px', color: '#2563eb' }} />
             דוח ארוחה מפורט
           </h3>
-          <button onClick={onClose} style={styles.closeIconButton}>
+          <button onClick={onClose} className="close-icon-button">
             <X size={24} />
           </button>
         </div>
 
-        <div style={styles.modalBody}>
-          <div style={styles.mealMeta}>
+        <div className="modal-body">
+          <div className="meal-meta">
             <Calendar size={16} style={{ marginRight: '5px' }} />
             <strong>תאריך:</strong> {new Date(meal.created_at).toLocaleDateString('he-IL')}
             <span style={{ margin: '0 10px' }}>|</span>
             <strong>שעה:</strong> {new Date(meal.created_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
           </div>
 
-          {/* הצגת תמונת הארוחה מה-S3 */}
           {meal.image_url && (
-            <div style={styles.imageContainer}>
-              <img src={meal.image_url} alt="Meal" style={styles.mealImage} />
+            <div className="image-container">
+              <img src={meal.image_url} alt="Meal" className="meal-image" />
             </div>
           )}
 
-          {/* גרף תרומה תזונתית של הארוחה */}
-          <div style={styles.chartSection}>
-            <h4 style={styles.sectionTitle}>תרומה תזונתית לארוחה זו (%)</h4>
+          <div className="chart-section">
+            <h4 className="section-title">תרומה תזונתית לארוחה זו (%)</h4>
             <div style={{ height: 180, width: '100%' }}>
               <ResponsiveContainer>
                 <BarChart data={mealReport}>
@@ -99,8 +148,8 @@ const MealDetails = ({ meal, onClose, userId }) => {
             </div>
           </div>
 
-          <div style={styles.scrollableContent}>
-            <h4 style={styles.sectionTitle}>ניתוח AI קליני</h4>
+          <div className="scrollable-content">
+            <h4 className="section-title">ניתוח AI קליני</h4>
             {analysisContent}
           </div>
         </div>
@@ -130,22 +179,22 @@ export default function MealHistory({ userId }) {
     }
   };
 
-  if (loading) return <div style={styles.loading}>טוען היסטוריה...</div>;
-  if (meals.length === 0) return <div style={styles.emptyState}>אין עדיין ארוחות שמורות.</div>;
+  if (loading) return <div className="loading-state">טוען היסטוריה...</div>;
+  if (meals.length === 0) return <div className="empty-state">אין עדיין ארוחות שמורות.</div>;
 
   return (
-    <div style={styles.container}>
-      <h2 style={styles.historyTitle}>הארוחות שלי</h2>
-      <div style={styles.grid}>
+    <div className="meal-history-container">
+      <h2 className="history-title">הארוחות שלי</h2>
+      <div className="meal-grid">
         {meals.map((meal) => (
-          <div key={meal.meal_id} style={styles.card} onClick={() => setSelectedMeal(meal)}>
-            <div style={styles.cardHeader}>
+          <div key={meal.meal_id} className="meal-card" onClick={() => setSelectedMeal(meal)}>
+            <div className="card-header">
               <span style={{ fontSize: '1.2rem' }}>📅</span> {new Date(meal.created_at).toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' })}
             </div>
-            <div style={styles.cardBody}>
+            <div className="card-body">
               <span style={{ fontSize: '1.1rem' }}>🕒</span> {new Date(meal.created_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
             </div>
-            <div style={styles.cardFooter}>
+            <div className="card-footer">
               לחץ לפרטים
             </div>
           </div>
@@ -162,35 +211,3 @@ export default function MealHistory({ userId }) {
     </div>
   );
 }
-
-// --- סגנונות מורחבים ---
-const styles = {
-  // ... סגנונות קודמים שהיו לך ...
-  container: { marginTop: '25px', padding: '15px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' },
-  historyTitle: { fontSize: '1.25rem', fontWeight: '600', color: '#1e293b', marginBottom: '15px', textAlign: 'center' },
-  loading: { padding: '20px', textAlign: 'center', color: '#64748b' },
-  emptyState: { padding: '20px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '12px' },
-  card: { backgroundColor: '#fff', borderRadius: '10px', padding: '12px', cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', textAlign: 'center', border: '1px solid #f1f5f9' },
-  cardHeader: { fontWeight: '600', fontSize: '0.95rem', color: '#334155', marginBottom: '4px' },
-  cardBody: { fontSize: '0.9rem', color: '#64748b', marginBottom: '8px' },
-  cardFooter: { fontSize: '0.75rem', color: '#2563eb', fontWeight: '500' },
-
-  modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1050, padding: '20px' },
-  modalContent: { backgroundColor: '#fff', borderRadius: '16px', width: '100%', maxWidth: '650px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)', overflow: 'hidden', direction: 'rtl' },
-  modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc' },
-  modalTitle: { margin: 0, fontSize: '1.4rem', fontWeight: '700', color: '#1e293b', display: 'flex', alignItems: 'center' },
-  closeIconButton: { background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', padding: '8px' },
-  modalBody: { padding: '24px', overflowY: 'auto', flexGrow: 1 },
-  mealMeta: { display: 'flex', alignItems: 'center', fontSize: '0.9rem', color: '#64748b', marginBottom: '15px', paddingBottom: '10px', borderBottom: '1px dashed #e2e8f0' },
-
-  // סגנונות חדשים לתמונה ולגרף
-  imageContainer: { width: '100%', borderRadius: '12px', overflow: 'hidden', marginBottom: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' },
-  mealImage: { width: '100%', maxHeight: '250px', objectFit: 'cover' },
-  chartSection: { backgroundColor: '#f1f5f9', padding: '15px', borderRadius: '12px', marginBottom: '20px' },
-  sectionTitle: { fontSize: '1rem', fontWeight: '600', color: '#334155', marginBottom: '12px', textAlign: 'right' },
-
-  analysisText: { lineHeight: '1.7', color: '#334155', fontSize: '1.05rem' },
-  paragraph: { marginBottom: '16px', textAlign: 'right' },
-  jsonPre: { whiteSpace: 'pre-wrap', textAlign: 'left', direction: 'ltr', backgroundColor: '#f1f5f9', padding: '16px', borderRadius: '8px', fontSize: '0.9rem' }
-};

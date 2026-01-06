@@ -3,9 +3,7 @@ import axios from 'axios'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Cell } from 'recharts';
 import { Activity, Utensils, Zap, FileUp, HeartPulse, Droplet, User, Calendar } from 'lucide-react'; // אייקונים חדשים
 import './App.css'
-import MealHistory from './components/MealHistory'; // <--- ייבוא
-
-// const API_URL = "http://127.0.0.1:8000"; 
+import MealHistory from './components/MealHistory';
 
 const API_URL = "https://ldclmiawsh.execute-api.us-east-1.amazonaws.com/default";
 
