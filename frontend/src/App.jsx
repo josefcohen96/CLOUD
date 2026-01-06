@@ -16,8 +16,6 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState(null);
   const [recommendations, setRecommendations] = useState([]);
-  const [isCached, setIsCached] = useState(false); // האם התוצאה הגיעה מהקאש
-  const [showCacheToast, setShowCacheToast] = useState(false); // האם להציג את ההתראה
 
   useEffect(() => {
     axios.get(`${API_URL}/users`)
@@ -50,21 +48,14 @@ function App() {
   const handleAnalyze = async () => {
     if (!file || !selectedUserId) return;
     setLoading(true);
-    setIsCached(false); // איפוס לפני בדיקה חדשה
     const formData = new FormData();
     formData.append("file", file);
     formData.append("user_id", selectedUserId);
 
     try {
-      const response = await axios.post(`${API_URL}/analyze`, formData, {
+      await axios.post(`${API_URL}/analyze`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      if (response.data.cached) {
-        setIsCached(true);
-        setShowCacheToast(true);
-        // העלמת ההתראה אוטומטית אחרי 4 שניות
-        setTimeout(() => setShowCacheToast(false), 4000);
-      }
       fetchReport(selectedUserId);
       fetchRecommendations(selectedUserId);
     } catch (error) {
@@ -136,12 +127,6 @@ function App() {
       </aside>
 
       <main className="content">
-        {showCacheToast && (
-          <div className="cache-toast">
-            <Zap size={16} />
-            <span><strong>Cache Hit!</strong> נשלף מיידית מ-Valkey Serverless</span>
-          </div>
-        )}
         <header>
           <h1>Nutritional Analysis Report</h1>
           <p>Real-time clinical assessment powered by GenAI</p>
