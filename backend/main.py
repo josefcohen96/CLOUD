@@ -34,10 +34,10 @@ def upload_to_s3(file_path, original_name):
                 Bucket=S3_BUCKET,
                 Key=unique_name,
                 Body=f,
-                ContentType="image/jpeg",
-                ACL='public-read' # מאפשר צפייה בתמונה באתר
+                ContentType="image/jpeg"
             )
         return f"https://{S3_BUCKET}.s3.amazonaws.com/{unique_name}"
+    
     except Exception as e:
         print(f"❌ S3 ERROR: {e}")
         return None
