@@ -23,7 +23,7 @@ app.add_middleware(
 )
 
 # הגדרת S3 - החלף לשם הבאקט שלך
-S3_BUCKET = "nutrition-ai-images"
+S3_BUCKET = "nutrition-app-images"
 s3_client = boto3.client('s3')
 
 def upload_to_s3(file_path, original_name):
@@ -89,22 +89,27 @@ def get_report(user_id: int):
         gender, age_months, condition = prof
         
         query = """
-        WITH latest_meal AS (
-            SELECT meal_id, ai_analysis_summary, created_at, image_url FROM meals WHERE user_id = %s ORDER BY created_at DESC LIMIT 1
-        ),
-        meal_intake AS (
-            SELECT cm.nutrient_name, SUM(cm.amount) as total_consumed, MAX(cm.unit) as unit
-            FROM consumed_micros cm
-            JOIN food_items fi ON cm.item_id = fi.item_id
-            JOIN latest_meal lm ON fi.meal_id = lm.meal_id
-            GROUP BY cm.nutrient_name
-        )
-        SELECT mi.nutrient_name, mi.total_consumed, ns.daily_value as target_value, mi.unit, (mi.total_consumed / ns.daily_value)*100 as percentage
-        FROM meal_intake mi
-        JOIN nutrient_standards ns ON mi.nutrient_name = ns.nutrient_name
-        WHERE ns.gender IN (%s, 'both') AND ns.min_age_months <= %s AND ns.max_age_months >= %s AND ns.condition = %s
-        ORDER BY percentage ASC
-        """
+WITH latest_meal AS (
+    SELECT meal_id, ai_analysis_summary, created_at, image_url 
+    FROM meals WHERE user_id = %s ORDER BY created_at DESC LIMIT 1
+),
+meal_intake AS (
+    SELECT cm.nutrient_name, SUM(cm.amount) as total_consumed, MAX(cm.unit) as unit
+    FROM consumed_micros cm
+    JOIN food_items fi ON cm.item_id = fi.item_id
+    JOIN latest_meal lm ON fi.meal_id = lm.meal_id
+    GROUP BY cm.nutrient_name
+)
+SELECT mi.nutrient_name, mi.total_consumed, ns.daily_value as target_value, 
+       mi.unit, (mi.total_consumed / ns.daily_value)*100 as percentage
+FROM meal_intake mi
+JOIN nutrient_standards ns ON LOWER(mi.nutrient_name) = LOWER(ns.nutrient_name)
+WHERE ns.gender IN (%s, 'both') 
+  AND ns.min_age_months <= %s 
+  AND ns.max_age_months >= %s 
+  AND ns.condition = %s
+ORDER BY percentage ASC
+"""
         df = pd.read_sql(query, conn, params=(user_id, gender, age_months, age_months, condition))
         report_data = df.to_dict(orient="records")
         
