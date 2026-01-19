@@ -57,8 +57,20 @@ function App() {
       fetchReport(selectedUserId);
       fetchRecommendations(selectedUserId);
     } catch (error) {
-      console.error(error);
-      alert("Analysis Failed");
+      // 1. אם זה Timeout (504) או בעיית רשת, ננסה למשוך את הנתונים בכל זאת
+      if (error.response?.status === 504 || error.code === 'ECONNABORTED') {
+        console.warn("Operation timed out, checking if analysis completed in background...");
+
+        // נחכה 5 שניות ונתן ל-backend לסיים
+        await new Promise(resolve => setTimeout(resolve, 5000));
+
+        // ננסה למשוך נתונים
+        fetchReport(selectedUserId);
+        fetchRecommendations(selectedUserId);
+      } else {
+        console.error(error);
+        alert("Analysis Failed: " + (error.response?.data?.detail || error.message));
+      }
     } finally {
       setLoading(false);
     }
