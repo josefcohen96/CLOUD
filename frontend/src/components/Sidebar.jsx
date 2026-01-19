@@ -9,7 +9,8 @@ const Sidebar = ({
     setFile,
     file,
     handleAnalyze,
-    loading
+    loading,
+    lastUpdated
 }) => {
     return (
         <aside className="sidebar">
@@ -49,7 +50,7 @@ const Sidebar = ({
                     </div>
                 </div>
 
-                {selectedUserId && <MealHistory userId={selectedUserId} />}
+                {selectedUserId && <MealHistory userId={selectedUserId} lastUpdated={lastUpdated} />}
 
                 <button
                     onClick={handleAnalyze}

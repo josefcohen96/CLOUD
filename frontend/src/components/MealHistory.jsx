@@ -40,7 +40,7 @@ const MealDetails = ({ meal, onClose, userId }) => {
             <Sparkles size={18} />
             <span>סיכום קליני</span>
           </div>
-          
+
           <p className="analysis-paragraph">{data.overall_analysis || data.summary}</p>
         </div>
 
@@ -150,14 +150,14 @@ const MealDetails = ({ meal, onClose, userId }) => {
   );
 };
 
-export default function MealHistory({ userId }) {
+export default function MealHistory({ userId, lastUpdated }) {
   const [meals, setMeals] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedMeal, setSelectedMeal] = useState(null);
 
   useEffect(() => {
     if (userId) fetchHistory();
-  }, [userId]);
+  }, [userId, lastUpdated]);
 
   const fetchHistory = async () => {
     setLoading(true);

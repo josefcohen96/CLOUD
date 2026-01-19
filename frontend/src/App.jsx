@@ -14,6 +14,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState(null);
   const [recommendations, setRecommendations] = useState([]);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
     axios.get(`${API_URL}/users`)
@@ -67,6 +68,7 @@ function App() {
         // ננסה למשוך נתונים
         fetchReport(selectedUserId);
         fetchRecommendations(selectedUserId);
+        setRefreshTrigger(prev => prev + 1); // Trigger history update
       } else {
         console.error(error);
         alert("Analysis Failed: " + (error.response?.data?.detail || error.message));
@@ -86,6 +88,7 @@ function App() {
         file={file}
         handleAnalyze={handleAnalyze}
         loading={loading}
+        lastUpdated={refreshTrigger}
       />
 
       <main className="content">
