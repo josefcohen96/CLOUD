@@ -38,7 +38,7 @@
 
 1.  שכפל את המאגר:
     ```bash
-    git clone <repository-url>
+    git clone https://github.com/josefcohen96/CLOUD.git 
     cd nutrition
     ```
 
